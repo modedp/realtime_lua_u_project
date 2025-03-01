@@ -1,7 +1,11 @@
 -- SHA256.lua
 -- A Lua implementation of SHA256 hashing algorithm
 
+local CryptoModule = {}
+
 local SHA256 = {}
+
+local bit32 = bit32 or require("bit32")
 
 local function rightRotate(x, n)
 	assert(x, "Invalid argument #1 to 'rightRotate' (number expected, got nil)")
@@ -105,6 +109,117 @@ local function sha256(msg)
 	return hash
 end
 
+-- MD5.lua
+-- Module for generating MD5 hashes
+
+local MD5 = {}
+
+-- Constants for MD5 calculation
+local k = {}
+local r = {7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+	5,  9, 14, 20, 5,  9, 14, 20, 5,  9, 14, 20, 5,  9, 14, 20,
+	4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+	6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21}
+
+for i = 1, 64 do
+	k[i] = math.floor((2^32) * math.abs(math.sin(i + 1)))
+end
+
+local function leftrotate(x, c)
+	return bit32.lrotate(x, c)
+end
+
+local function to_bytes_le(str)
+	local bytes = {}
+	for i = 1, #str do
+		table.insert(bytes, str:byte(i))
+	end
+	return bytes
+end
+
+local function to_hex_string(bytes)
+	local hex_str = ""
+	for _, byte in ipairs(bytes) do
+		hex_str = hex_str .. string.format("%02x", byte)
+	end
+	return hex_str
+end
+
+local function md5_transform(buf, bytes)
+	local a, b, c, d = buf[1], buf[2], buf[3], buf[4]
+
+	for i = 1, 64 do
+		local f, g
+		if i < 16 then
+			f = bit32.bor(bit32.band(b, c), bit32.band(bit32.bnot(b), d))
+			g = i
+		elseif i < 32 then
+			f = bit32.bor(bit32.band(d, b), bit32.band(bit32.bnot(d), c))
+			g = (5 * i + 1) % 16
+		elseif i < 48 then
+			f = bit32.bxor(b, bit32.bxor(c, d))
+			g = (3 * i + 5) % 16
+		else
+			f = bit32.bxor(c, bit32.bor(b, bit32.bnot(d)))
+			g = (7 * i) % 16
+		end
+		local temp = d
+		d = c
+		c = b
+		b = b + leftrotate((a + f + k[i] + bytes[g + 1]) % 2^32, r[i])
+		a = temp
+	end
+
+	buf[1] = (buf[1] + a) % 2^32
+	buf[2] = (buf[2] + b) % 2^32
+	buf[3] = (buf[3] + c) % 2^32
+	buf[4] = (buf[4] + d) % 2^32
+end
+
+function MD5.hash(input)
+	local bytes = to_bytes_le(input)
+	local bit_len = #bytes * 8
+
+	-- Padding
+	table.insert(bytes, 0x80)
+	while (#bytes % 64) ~= 56 do
+		table.insert(bytes, 0)
+	end
+
+	-- Append length
+	for i = 1, 8 do
+		table.insert(bytes, bit32.band(bit32.rshift(bit_len, i * 8), 0xFF))
+	end
+
+	local buf = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476}
+
+	for i = 1, #bytes, 64 do
+		local chunk = {}
+		for j = 1, 64 do
+			chunk[j] = bytes[i + j] or 0
+		end
+		md5_transform(buf, chunk)
+	end
+
+	return to_hex_string({
+		bit32.band(buf[1], 0xFF), bit32.band(bit32.rshift(buf[1], 8), 0xFF), bit32.band(bit32.rshift(buf[1], 16), 0xFF), bit32.band(bit32.rshift(buf[1], 24), 0xFF),
+		bit32.band(buf[2], 0xFF), bit32.band(bit32.rshift(buf[2], 8), 0xFF), bit32.band(bit32.rshift(buf[2], 16), 0xFF), bit32.band(bit32.rshift(buf[2], 24), 0xFF),
+		bit32.band(buf[3], 0xFF), bit32.band(bit32.rshift(buf[3], 8), 0xFF), bit32.band(bit32.rshift(buf[3], 16), 0xFF), bit32.band(bit32.rshift(buf[3], 24), 0xFF),
+		bit32.band(buf[4], 0xFF), bit32.band(bit32.rshift(buf[4], 8), 0xFF), bit32.band(bit32.rshift(buf[4], 16), 0xFF), bit32.band(bit32.rshift(buf[4], 24), 0xFF)
+	})
+end
+
+local function md5(message)
+	local result = MD5.hash(message)
+	
+	return result
+end
+
+
 SHA256.hash = sha256
 
-return SHA256
+CryptoModule.sha256 = SHA256.hash
+
+CryptoModule.md5 = md5
+
+return CryptoModule
