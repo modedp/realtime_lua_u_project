@@ -108,7 +108,9 @@ local globalEnv: dictionary = {
 
 table.freeze(globalEnv)
 
-return function()
+local VirtualEnv = {}
+
+function VirtualEnv.newEnvironment()
 	local env: dictionary = {}
 
 	for k, v in pairs(globalEnv) do
@@ -146,3 +148,5 @@ return function()
 
 	return env
 end
+
+return VirtualEnv.newEnvironment()
