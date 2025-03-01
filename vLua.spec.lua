@@ -37,7 +37,7 @@ luaX:init()
 local LuaState = {}
 local LuaMain = {}
 
-function LuaMain.function(str, env)
+function LuaMain.loadstring(str, env)
 	local f,writer,buff,name
 	local env = env ~= nil and env or vEnv ~= nil and vEnv or {}
 	local name = (env and env.script and env.script:GetFullName())
@@ -55,8 +55,6 @@ function LuaMain.function(str, env)
 	else
 		return nil,error
 	end
-end
-
 end
 
 return LuaMain
